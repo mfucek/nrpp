@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { Express, Request, Response } from 'express';
 import { auth } from 'express-oauth2-jwt-bearer';
@@ -9,6 +10,14 @@ dotenv.config();
 const app: Express = express();
 const prisma = new PrismaClient();
 const port = process.env.PORT || 3000;
+
+// Add CORS middleware before other middleware
+app.use(
+	cors({
+		origin: 'http://localhost:3000',
+		credentials: true
+	})
+);
 
 app.use(express.json());
 
@@ -27,8 +36,10 @@ app.get('/', async (req: Request, res: Response) => {
 // Protected endpoint for generating tickets
 app.post(
 	'/api/tickets',
-	checkJwt,
+	// checkJwt,
 	async (req: Request, res: Response): Promise<void> => {
+		console.log('Received request to create ticket');
+
 		const { oib, firstName, lastName } = req.body;
 
 		// Validate input
@@ -77,7 +88,7 @@ app.post(
 // Protected endpoint for viewing ticket details
 app.get(
 	'/tickets/:id',
-	checkJwt,
+	// checkJwt,
 	async (req: Request, res: Response): Promise<void> => {
 		const { id } = req.params;
 		const authHeader = req.headers.authorization;
@@ -121,6 +132,21 @@ app.get(
 		}
 	}
 );
+
+app.get('/api/tickets', async (req: Request, res: Response) => {
+	console.log('Received request to fetch tickets');
+	try {
+		const tickets = await prisma.ticket.findMany({
+			orderBy: {
+				createdAt: 'desc'
+			}
+		});
+		res.json(tickets);
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
 
 app.listen(port, () => {
 	console.log(`[server]: Server is running at http://localhost:${port}`);
